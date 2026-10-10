@@ -3,8 +3,8 @@
 </p>
 
 <p align="center">
-  <strong>Servidor realtime clean-room do protocolo Photon — só Linux ARM64.</strong><br>
-  Fluxo Name / Master / Game · UDP + TCP · ENet · GpBinary 1.6/1.8 · Cripto DH · SQL Lobbies
+  <strong>Clean-room Photon protocol realtime server — Linux ARM64 only.</strong><br>
+  Name / Master / Game flow · UDP + TCP · ENet · GpBinary 1.6/1.8 · DH crypto · SQL lobbies
 </p>
 
 <p align="center">
@@ -16,29 +16,29 @@
 
 ---
 
-## ⚡ Por que CoreRealtime?
+## ⚡ Why CoreRealtime?
 
 | | |
 |---|---|
-| ⚡ **UDP + TCP iguais** | Mesmo fluxo Photon nos dois transportes. TCP com framing de prefixo de tamanho, mesmas operações e respostas. |
-| 🔒 **Cripto de verdade** | Diffie-Hellman Oakley-768 + AES-256-CBC, com handshake de init-encryption por peer. |
-| 🎯 **Um alvo só** | `aarch64-unknown-linux-gnu`. Sem `#ifdef` de Windows, 3DS ou WASM. |
-| 🗂️ **SQL Lobbies** | Filtros `C0..C9` com LIKE/GLOB, AND/OR/NOT e cadeia de até 3 queries. |
-| 📦 **Núcleo mínimo** | Apps, lobbies, salas, peers, matchmaking. Sem webserver, plugins, FFI ou telemetria. |
-| 🧩 **Core separado** | Biblioteca de protocolo (`Core/`) como submódulo próprio, versionada à parte. |
+| ⚡ **UDP + TCP alike** | Same Photon flow on both transports. TCP uses length-prefixed framing, same operations and responses. |
+| 🔒 **Real crypto** | Oakley-768 Diffie-Hellman + AES-256-CBC, with per-peer init-encryption handshake. |
+| 🎯 **One target** | `aarch64-unknown-linux-gnu`. No Windows, 3DS or WASM `#ifdef`s. |
+| 🗂️ **SQL lobbies** | `C0..C9` filters with LIKE/GLOB, AND/OR/NOT and chains of up to 3 queries. |
+| 📦 **Minimal core** | Apps, lobbies, rooms, peers, matchmaking. No webserver, plugins, FFI or telemetry. |
+| 🧩 **Standalone Core** | Protocol library (`Core/`) as its own submodule, versioned separately. |
 
 ## 🚀 Quickstart
 
 ```bash
-# 1. build (Ubuntu ARM64 ou cross)
+# 1. build (ARM64 Ubuntu or cross)
 cmake -B build --toolchain cmake/toolchain-aarch64-ubuntu-unknown.cmake \
   -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 
-# 2. configure (troque pelos IPs da sua máquina)
+# 2. configure (set your machine IPs)
 cp config.example.yml config.yml
 
-# 3. rode
+# 3. run
 ./build/corerealtime config.yml
 ```
 
@@ -46,27 +46,27 @@ cp config.example.yml config.yml
 [ServerManager] [info] CoreRealtime ready — listening on 6 server(s)
 ```
 
-1. Libere no firewall as UDP **5055–5058** e **27000–27002** (+ TCP **4530/4531/4533** se usar proxies).
-2. Aponte `ns.exitgames.com` e `ns.photonengine.io` para o IP do servidor.
-3. Abra o jogo — ele conecta achando que é a nuvem oficial.
+1. Open UDP **5055–5058** and **27000–27002** in the firewall (+ TCP **4530/4531/4533** for proxies).
+2. Point `ns.exitgames.com` and `ns.photonengine.io` at your server IP.
+3. Launch the game — it connects thinking it's the official cloud.
 
-## 🔌 Portas
+## 🔌 Ports
 
-| Servidor | UDP | TCP (proxy) | Faz o quê |
+| Server | UDP | TCP (proxy) | Does |
 |---|---|---|---|
-| NameServer | `5058` · `27000` | `4533` | Entrada, região e autenticação |
-| MasterServer | `5055` · `27001` | `4530` | Lobbies e matchmaking |
-| GameServer | `5056` · `27002` | `4531` | Salas e relay de eventos |
+| NameServer | `5058` · `27000` | `4533` | Entry, region and authentication |
+| MasterServer | `5055` · `27001` | `4530` | Lobbies and matchmaking |
+| GameServer | `5056` · `27002` | `4531` | Rooms and event relay |
 
-## 📁 Estrutura
+## 📁 Layout
 
-- `src/`, `include/` — núcleo mínimo do servidor
-- `Core/` — lib de protocolo (submódulo [Core](https://github.com/clebsonisaquedeandradesilva/Core))
-- `cmake/toolchain-aarch64-ubuntu-unknown.cmake` — toolchain única
-- `debian/` — pacote ARM64 (`corerealtime`)
-- `config.example.yml` — configuração de exemplo comentada
+- `src/`, `include/` — minimal server core
+- `Core/` — protocol library ([Core](https://github.com/clebsonisaquedeandradesilva/Core) submodule)
+- `cmake/toolchain-aarch64-ubuntu-unknown.cmake` — the single toolchain
+- `debian/` — ARM64 packaging (`corerealtime`)
+- `config.example.yml` — annotated example configuration
 
-## 📄 Licença
+## 📄 License
 
-BSD-3-Clause. Projeto independente — sem afiliação com a Exit Games GmbH
-("Photon" é usado só para descrever compatibilidade).
+BSD-3-Clause. Independent project — no affiliation with Exit Games GmbH
+("Photon" is used only to describe compatibility).
