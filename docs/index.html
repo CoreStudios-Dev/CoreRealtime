@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CoreRealtime — Servidor Realtime para Linux ARM64</title>
+<meta name="description" content="CoreRealtime: implementação clean-room do servidor Photon Realtime. UDP + TCP, ENet, GpBinary 1.6/1.8, cripto DH. Alvo único: aarch64-unknown-linux-gnu.">
+<style>
+  :root {
+    --bg: #0a0e14;
+    --card: #11161f;
+    --line: #232d3a;
+    --txt: #e6edf3;
+    --mut: #8b949e;
+    --teal: #39c5cf;
+    --green: #3fb950;
+    --grad: linear-gradient(135deg, #56e6f0, #39c5cf 55%, #3fb950);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: radial-gradient(1200px 600px at 50% -10%, #14202e 0%, var(--bg) 60%) no-repeat var(--bg);
+    color: var(--txt);
+    font-family: Verdana, "DejaVu Sans", system-ui, sans-serif;
+    line-height: 1.65;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+  header.hero { text-align: center; padding: 72px 24px 48px; }
+  header.hero img { width: min(560px, 92%); height: auto; filter: drop-shadow(0 12px 40px rgba(57,197,207,.25)); }
+  .tag { margin-top: 18px; font-size: 1.25rem; color: var(--txt); }
+  .tag span { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; font-weight: bold; }
+  .sub { color: var(--mut); margin-top: 8px; }
+  .badges { margin-top: 22px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  .badge {
+    border: 1px solid var(--line); border-radius: 999px; padding: 6px 16px;
+    font-size: .85rem; color: var(--txt); background: rgba(255,255,255,.02);
+  }
+  .badge b { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .cta { margin-top: 30px; display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+  .btn {
+    text-decoration: none; font-weight: bold; border-radius: 12px; padding: 14px 30px;
+    font-size: 1rem; transition: transform .15s ease, box-shadow .15s ease;
+  }
+  .btn:hover { transform: translateY(-2px); }
+  .btn.primary { background: var(--grad); color: #04121a; box-shadow: 0 8px 30px rgba(57,197,207,.35); }
+  .btn.ghost { border: 1px solid var(--line); color: var(--txt); background: rgba(255,255,255,.02); }
+  section { padding: 44px 0; }
+  h2 { font-size: 1.6rem; margin-bottom: 6px; }
+  h2 .bar { display: inline-block; width: 44px; height: 4px; border-radius: 2px; background: var(--grad); vertical-align: middle; margin-right: 12px; }
+  p.dim { color: var(--mut); margin-bottom: 22px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 16px;
+    padding: 22px; transition: border-color .2s ease, transform .15s ease;
+  }
+  .card:hover { border-color: var(--teal); transform: translateY(-2px); }
+  .card .ico { font-size: 1.7rem; }
+  .card h3 { margin: 10px 0 6px; font-size: 1.05rem; }
+  .card p { color: var(--mut); font-size: .92rem; }
+  pre {
+    background: #05080d; border: 1px solid var(--line); border-radius: 14px;
+    padding: 20px 22px; overflow-x: auto; font-size: .88rem; line-height: 1.7;
+    color: #c9e8ec;
+  }
+  pre .c { color: #5b6b7c; }
+  pre .k { color: #56e6f0; }
+  table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+  th, td { text-align: left; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+  th { color: var(--mut); font-weight: normal; text-transform: uppercase; font-size: .78rem; letter-spacing: 1px; }
+  td code, p code, li code {
+    background: rgba(57,197,207,.12); color: #7ee7ef; border-radius: 6px;
+    padding: 2px 8px; font-size: .85em;
+  }
+  .ready {
+    background: linear-gradient(135deg, rgba(57,197,207,.12), rgba(63,185,80,.12));
+    border: 1px solid rgba(57,197,207,.4); border-radius: 14px;
+    padding: 16px 22px; font-family: ui-monospace, Consolas, monospace; font-size: .9rem;
+  }
+  .ready b { color: var(--green); }
+  ol.steps { margin: 0 0 0 22px; color: var(--mut); }
+  ol.steps li { margin: 8px 0; }
+  ol.steps b { color: var(--txt); }
+  footer { border-top: 1px solid var(--line); margin-top: 30px; padding: 28px 24px 60px; text-align: center; color: var(--mut); font-size: .85rem; }
+  footer a { color: var(--teal); text-decoration: none; }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <img src="logo.svg" alt="CoreRealtime">
+    <p class="tag">Servidor realtime <span>clean-room</span> do protocolo Photon — só Linux ARM64.</p>
+    <p class="sub">Fluxo Name / Master / Game · UDP + TCP · ENet · GpBinary 1.6/1.8 · Cripto DH · SQL Lobbies</p>
+    <div class="badges">
+      <span class="badge"><b>aarch64</b>-unknown-linux-gnu</span>
+      <span class="badge">C++<b>23</b></span>
+      <span class="badge"><b>UDP</b> + TCP</span>
+      <span class="badge">BSD-<b>3</b>Clause</span>
+    </div>
+    <div class="cta">
+      <a class="btn primary" href="https://github.com/clebsonisaquedeandradesilva/CoreRealtime">Ver no GitHub</a>
+      <a class="btn ghost" href="#quickstart">Começar em 5 min</a>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+<section>
+  <h2><span class="bar"></span>Por que CoreRealtime?</h2>
+  <p class="dim">Um binário, um alvo, zero gordura: só o núcleo do servidor.</p>
+  <div class="grid">
+    <div class="card"><div class="ico">⚡</div><h3>UDP + TCP iguais</h3><p>Mesmo fluxo Photon nos dois transportes. TCP via framing com prefixo de tamanho, mesmas operações e respostas.</p></div>
+    <div class="card"><div class="ico">🔒</div><h3>Cripto de verdade</h3><p>Diffie-Hellman Oakley-768 + AES-256-CBC com handshake de init-encryption negociado por peer.</p></div>
+    <div class="card"><div class="ico">🎯</div><h3>Um alvo só</h3><p><code>aarch64-unknown-linux-gnu</code>. Sem enquetes de plataforma, sem #ifdef de Windows, 3DS ou WASM.</p></div>
+    <div class="card"><div class="ico">🗂️</div><h3>SQL Lobbies</h3><p>Filtros <code>C0..C9</code> com LIKE/GLOB, AND/OR/NOT e cadeia de até 3 queries, igual ao original.</p></div>
+    <div class="card"><div class="ico">📦</div><h3>Núcleo mínimo</h3><p>Apps, lobbies, salas, peers, matchmaking. Sem webserver, plugins, FFI ou telemetria.</p></div>
+    <div class="card"><div class="ico">🧩</div><h3>Core separado</h3><p>Biblioteca de protocolo (<code>Core/</code>) como submódulo próprio, versionada à parte.</p></div>
+  </div>
+</section>
+
+<section id="quickstart">
+  <h2><span class="bar"></span>Quickstart</h2>
+  <p class="dim">Do zero ao servidor ouvindo.</p>
+<pre><span class="c"># 1. build (Ubuntu ARM64 ou cross)</span>
+cmake -B build --toolchain cmake/toolchain-aarch64-ubuntu-unknown.cmake \
+  -DCMAKE_BUILD_TYPE=Release
+cmake --build build
+
+<span class="c"># 2. configure (troque pelos IPs da sua máquina)</span>
+cp config.example.yml config.yml
+
+<span class="c"># 3. rode</span>
+./build/<span class="k">corerealtime</span> config.yml</pre>
+  <br>
+  <div class="ready">CoreRealtime ready — <b>listening on 6 server(s)</b></div>
+  <br>
+  <ol class="steps">
+    <li>Libere no firewall as UDP <b>5055–5058</b> e <b>27000–27002</b> (+ TCP <b>4530/4531/4533</b> se usar proxies).</li>
+    <li>Aponte <b>ns.exitgames.com</b> e <b>ns.photonengine.io</b> para o IP do servidor.</li>
+    <li>Abra o jogo — ele conecta achando que é a nuvem oficial.</li>
+  </ol>
+</section>
+
+<section>
+  <h2><span class="bar"></span>Portas</h2>
+  <p class="dim">Padrão do <code>config.example.yml</code>.</p>
+  <table>
+    <tr><th>Servidor</th><th>UDP</th><th>TCP (proxy)</th><th>Faz o quê</th></tr>
+    <tr><td>NameServer</td><td><code>5058 · 27000</code></td><td><code>4533</code></td><td>Entrada, região e autenticação</td></tr>
+    <tr><td>MasterServer</td><td><code>5055 · 27001</code></td><td><code>4530</code></td><td>Lobbies e matchmaking</td></tr>
+    <tr><td>GameServer</td><td><code>5056 · 27002</code></td><td><code>4531</code></td><td>Salas e relay de eventos</td></tr>
+  </table>
+</section>
+
+<section>
+  <h2><span class="bar"></span>Estrutura</h2>
+  <p class="dim"><code>src/</code> + <code>include/</code> núcleo · <code>Core/</code> protocolo (submódulo) · <code>debian/</code> pacote ARM64 · <code>cmake/</code> toolchain única.</p>
+<pre>corerealtime <span class="c"># binário (build/)</span>
+/etc/corerealtime/config.yml <span class="c"># pacote .deb</span>
+CoreRealtime/  <span class="c"># este repo</span>
+Core/          <span class="c"># submódulo da lib de protocolo</span></pre>
+</section>
+
+</div>
+
+<footer>
+  CoreRealtime · BSD-3-Clause · Não afiliado à Exit Games GmbH (“Photon” é usado só para descrever compatibilidade).<br>
+  <a href="https://github.com/clebsonisaquedeandradesilva/CoreRealtime">GitHub</a> ·
+  <a href="https://github.com/clebsonisaquedeandradesilva/Core">Lib Core</a>
+</footer>
+
+</body>
+</html>
