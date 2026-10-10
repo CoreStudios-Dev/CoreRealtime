@@ -1,44 +1,72 @@
-# CoreRealtime
+<p align="center">
+  <img src="docs/logo.svg" alt="CoreRealtime" width="560">
+</p>
 
-![CoreRealtime logo](https://raw.githubusercontent.com/clebsonisaquedeandradesilva/CoreRealtime/main/docs/logo.svg)
+<p align="center">
+  <strong>Servidor realtime clean-room do protocolo Photon — só Linux ARM64.</strong><br>
+  Fluxo Name / Master / Game · UDP + TCP · ENet · GpBinary 1.6/1.8 · Cripto DH · SQL Lobbies
+</p>
 
-CoreRealtime is a clean-room implementation of the Photon Realtime server
-(Name/Master/Game flow), targeting **only Linux ARM64
-(`aarch64-unknown-linux-gnu`, Ubuntu/unknown)**.
+<p align="center">
+  <img src="https://img.shields.io/badge/arch-aarch64-39c5cf?style=for-the-badge" alt="aarch64">
+  <img src="https://img.shields.io/badge/C++-23-3fb950?style=for-the-badge" alt="C++23">
+  <img src="https://img.shields.io/badge/UDP+%2B_TCP-0052cc?style=for-the-badge" alt="UDP+TCP">
+  <img src="https://img.shields.io/badge/license-BSD--3--Clause-8b949e?style=for-the-badge" alt="BSD-3-Clause">
+</p>
 
-> Not affiliated with, endorsed by, or sponsored by Exit Games GmbH.
-> "Photon" is used descriptively for compatibility purposes only.
+---
 
-## Build
+## ⚡ Por que CoreRealtime?
 
-Prerequisites: CMake 3.16+, a C++23 compiler, `aarch64-linux-gnu` cross
-toolchain (or a native ARM64 host), git.
+| | |
+|---|---|
+| ⚡ **UDP + TCP iguais** | Mesmo fluxo Photon nos dois transportes. TCP com framing de prefixo de tamanho, mesmas operações e respostas. |
+| 🔒 **Cripto de verdade** | Diffie-Hellman Oakley-768 + AES-256-CBC, com handshake de init-encryption por peer. |
+| 🎯 **Um alvo só** | `aarch64-unknown-linux-gnu`. Sem `#ifdef` de Windows, 3DS ou WASM. |
+| 🗂️ **SQL Lobbies** | Filtros `C0..C9` com LIKE/GLOB, AND/OR/NOT e cadeia de até 3 queries. |
+| 📦 **Núcleo mínimo** | Apps, lobbies, salas, peers, matchmaking. Sem webserver, plugins, FFI ou telemetria. |
+| 🧩 **Core separado** | Biblioteca de protocolo (`Core/`) como submódulo próprio, versionada à parte. |
+
+## 🚀 Quickstart
 
 ```bash
+# 1. build (Ubuntu ARM64 ou cross)
 cmake -B build --toolchain cmake/toolchain-aarch64-ubuntu-unknown.cmake \
   -DCMAKE_BUILD_TYPE=Release
 cmake --build build
-```
 
-This produces `build/corerealtime`.
-
-## Configure & run
-
-```bash
+# 2. configure (troque pelos IPs da sua máquina)
 cp config.example.yml config.yml
-# edit external_address entries to your server IP, open UDP
-# 5055-5058 and 27000-27002, then:
+
+# 3. rode
 ./build/corerealtime config.yml
 ```
 
-Point the game's Photon domains (`ns.exitgames.com`,
-`ns.photonengine.io`) at your server IP.
+```
+[ServerManager] [info] CoreRealtime ready — listening on 6 server(s)
+```
 
-## Layout
+1. Libere no firewall as UDP **5055–5058** e **27000–27002** (+ TCP **4530/4531/4533** se usar proxies).
+2. Aponte `ns.exitgames.com` e `ns.photonengine.io` para o IP do servidor.
+3. Abra o jogo — ele conecta achando que é a nuvem oficial.
 
-- `src/`, `include/` — minimal server core (no webserver, plugins, FFI,
-  Tracy, WASI or other platforms; see `CMakeLists.txt`)
-- `Core/` — protocol library (vendored in-tree, no submodules left)
-- `cmake/toolchain-aarch64-ubuntu-unknown.cmake` — the only toolchain
-- `debian/` — ARM64 packaging (`corerealtime` package)
-- `config.example.yml` — annotated example configuration
+## 🔌 Portas
+
+| Servidor | UDP | TCP (proxy) | Faz o quê |
+|---|---|---|---|
+| NameServer | `5058` · `27000` | `4533` | Entrada, região e autenticação |
+| MasterServer | `5055` · `27001` | `4530` | Lobbies e matchmaking |
+| GameServer | `5056` · `27002` | `4531` | Salas e relay de eventos |
+
+## 📁 Estrutura
+
+- `src/`, `include/` — núcleo mínimo do servidor
+- `Core/` — lib de protocolo (submódulo [Core](https://github.com/clebsonisaquedeandradesilva/Core))
+- `cmake/toolchain-aarch64-ubuntu-unknown.cmake` — toolchain única
+- `debian/` — pacote ARM64 (`corerealtime`)
+- `config.example.yml` — configuração de exemplo comentada
+
+## 📄 Licença
+
+BSD-3-Clause. Projeto independente — sem afiliação com a Exit Games GmbH
+("Photon" é usado só para descrever compatibilidade).
