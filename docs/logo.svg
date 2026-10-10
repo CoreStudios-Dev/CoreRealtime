@@ -1,18 +1,51 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="720" height="160" viewBox="0 0 720 160" role="img" aria-label="CoreRealtime logo">
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="180" viewBox="0 0 720 180" role="img" aria-label="CoreRealtime logo">
   <defs>
     <linearGradient id="core-g" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#39c5cf"/>
-      <stop offset="1" stop-color="#2ea043"/>
+      <stop offset="0" stop-color="#56e6f0"/>
+      <stop offset="0.55" stop-color="#39c5cf"/>
+      <stop offset="1" stop-color="#3fb950"/>
     </linearGradient>
+    <radialGradient id="core-bg" cx="0.5" cy="0.42" r="0.85">
+      <stop offset="0" stop-color="#161f2b"/>
+      <stop offset="1" stop-color="#0a0e14"/>
+    </radialGradient>
+    <filter id="core-glow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="5" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="core-soft" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="10"/>
+    </filter>
   </defs>
-  <!-- mark: three relay nodes -->
-  <g fill="none" stroke="url(#core-g)" stroke-width="7" stroke-linecap="round">
-    <path d="M52 34 L104 62 L78 118 L26 118 L26 62 Z"/>
-    <circle cx="52" cy="34" r="10" fill="#39c5cf" stroke="none"/>
-    <circle cx="104" cy="62" r="10" fill="#2ea043" stroke="none"/>
-    <circle cx="65" cy="118" r="10" fill="url(#core-g)" stroke="none"/>
-    <circle cx="65" cy="76" r="7" fill="#0d1117" stroke="url(#core-g)" stroke-width="5"/>
+  <rect x="4" y="4" width="712" height="172" rx="26" fill="url(#core-bg)" stroke="#232d3a" stroke-width="1.5"/>
+  <ellipse cx="90" cy="92" rx="86" ry="66" fill="url(#core-g)" opacity="0.10" filter="url(#core-soft)"/>
+  <!-- orbit arcs -->
+  <g fill="none" stroke="url(#core-g)" opacity="0.35">
+    <path d="M30 128 A74 74 0 0 1 150 128" stroke-width="2" stroke-dasharray="3 9" stroke-linecap="round"/>
+    <path d="M38 52 A74 74 0 0 1 142 52" stroke-width="2" stroke-dasharray="3 9" stroke-linecap="round"/>
   </g>
-  <text x="140" y="82" font-family="Verdana, DejaVu Sans, sans-serif" font-size="52" font-weight="bold" fill="#e6edf3">Core<tspan fill="url(#core-g)">Realtime</tspan></text>
-  <text x="142" y="114" font-family="Verdana, DejaVu Sans, sans-serif" font-size="20" letter-spacing="6" fill="#8b949e">REALTIME SERVER • ARM64</text>
+  <!-- mesh mark -->
+  <g filter="url(#core-glow)">
+    <g fill="none" stroke="url(#core-g)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M62 44 L110 70 L86 122 L38 122 L38 70 Z"/>
+      <path d="M62 44 L74 83 L110 70" stroke-width="4" opacity="0.8"/>
+      <path d="M74 83 L86 122 M74 83 L38 70" stroke-width="4" opacity="0.8"/>
+    </g>
+    <circle cx="62" cy="44" r="11" fill="#0a0e14" stroke="url(#core-g)" stroke-width="6"/>
+    <circle cx="110" cy="70" r="11" fill="#0a0e14" stroke="url(#core-g)" stroke-width="6"/>
+    <circle cx="62" cy="122" r="11" fill="#0a0e14" stroke="url(#core-g)" stroke-width="6"/>
+    <circle cx="74" cy="83" r="9" fill="url(#core-g)"/>
+  </g>
+  <!-- pulses -->
+  <g fill="url(#core-g)">
+    <circle cx="86" cy="96" r="3.5" opacity="0.9"/>
+    <circle cx="96" cy="90" r="2.5" opacity="0.55"/>
+    <circle cx="104" cy="85" r="1.8" opacity="0.3"/>
+  </g>
+  <text x="152" y="92" font-family="Verdana, DejaVu Sans, sans-serif" font-size="54" font-weight="bold" fill="#f0f6fc" letter-spacing="1">Core<tspan fill="url(#core-g)">Realtime</tspan></text>
+  <rect x="154" y="104" width="64" height="4" rx="2" fill="url(#core-g)"/>
+  <text x="154" y="134" font-family="Verdana, DejaVu Sans, sans-serif" font-size="19" letter-spacing="5.5" fill="#8b949e">REALTIME SERVER • ARM64</text>
 </svg>
