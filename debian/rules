@@ -2,34 +2,20 @@
 
 export DH_VERBOSE = 1
 
-# Delegate to debhelper using CMake build system
 %:
 	dh $@ --buildsystem=cmake
 
-# Override configure step to pass specific flags
 override_dh_auto_configure:
 	dh_auto_configure -- \
-		-DFETCHCONTENT_FULLY_DISCONNECTED=OFF \
-		-DCMAKE_BUILD_TYPE=RelWithDebInfo \
-		-DCMAKE_UNITY_BUILD=ON \
-		-DLUXON_SERVER_ENABLE_WEBSERVER=ON \
-		-DLUXON_SERVER_ENABLE_MULTIPROCESSING=ON \
-		-DLUXON_SERVER_ENABLE_PLUGINS=ON \
-		-DLUXON_SERVER_ENABLE_COMMAND_RESTARTER=ON \
-		-DLUXON_SERVER_HOOKPOINTS=ON \
-		-DLUXON_SERVER_ENABLE_SETTINGS_DATABASE=ON \
-		-DLUXON_SERVER_BUILD_FFI=ON \
-		-DLUXON_SERVER_USE_SPDLOG=ON \
-		-DLUXON_SERVER_USE_SANMAKE=OFF
+		-DCMAKE_BUILD_TYPE=Release \
+		-DCMAKE_TOOLCHAIN_FILE=cmake/toolchain-aarch64-ubuntu-unknown.cmake
 
 override_dh_auto_install:
-	mkdir -p debian/luxon-server/usr/bin
-	mkdir -p debian/luxon-server/usr/lib
-	mkdir -p debian/luxon-server/etc/luxon_server
+	mkdir -p debian/corerealtime/usr/bin
+	mkdir -p debian/corerealtime/etc/corerealtime
 
-	cp obj-*/luxon_server debian/luxon-server/usr/bin/
-	cp obj-*/libluxon_server_ffi.so debian/luxon-server/usr/lib/
+	cp obj-*/corerealtime debian/corerealtime/usr/bin/
 
-	cp config.example.yml debian/luxon-server/etc/luxon_server/config.yml
+	cp config.example.yml debian/corerealtime/etc/corerealtime/config.yml
 
-	chmod 755 debian/luxon-server/usr/bin/luxon_server
+	chmod 755 debian/corerealtime/usr/bin/corerealtime

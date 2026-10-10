@@ -80,6 +80,7 @@ CMakeLists.txt.user*
 .rcc/
 .uic/
 /build*/
+CoreRealtime/target/
 
 # Files + Folders generated when using Visual Studio
 .vs
@@ -87,7 +88,7 @@ out
 
 # Debian packaging artifacts
 /debian/.debhelper/
-/debian/luxon-server/
+/debian/corerealtime/
 /debian/files
 /debian/*.substvars
 /debian/*.debhelper

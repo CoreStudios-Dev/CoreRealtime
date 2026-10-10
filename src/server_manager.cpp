@@ -500,10 +500,10 @@ ServerManager::ServerManager(ServerManagerConfig config
         static bool banner_printed = false;
         if (!banner_printed) {
             log_->info(" ");
-            log_->info(" |===================== http://github.com/niansa/LuxonServer =====================|");
+            log_->info(" |===================== CoreRealtime (Linux arm64 ubuntu-unknown) =====================|");
             log_->info(" | BSD 3-Clause License                                                           |");
             log_->info(" |                                                                                |");
-            log_->info(" | Copyright (c) 2026, the Luxon Server contributors                              |");
+            log_->info(" | Copyright (c) 2026, the CoreRealtime contributors                                   |");
             log_->info(" |                                                                                |");
             log_->info(" | Redistribution and use in source and binary forms, with or without             |");
             log_->info(" | modification, are permitted provided that the following conditions are met:    |");

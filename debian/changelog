@@ -1,4 +1,4 @@
-luxon-server (1.4.2) UNRELEASED; urgency=low
+corerealtime (1.4.2) UNRELEASED; urgency=low
 
   * Fixed critical SQL lobby issue in authorizer function
   * Improved SQL error messages

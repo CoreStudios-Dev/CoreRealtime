@@ -1,0 +1,17 @@
+[Unit]
+Description=CoreRealtime
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/etc/corerealtime
+ExecStart=/usr/bin/corerealtime
+
+Restart=on-failure
+RestartSec=5
+
+DynamicUser=yes
+
+[Install]
+WantedBy=multi-user.target

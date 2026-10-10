@@ -1,0 +1,667 @@
+// Copyright (c) 2026, the Luxon contributors
+// SPDX-License-Identifier: BSD-3-Clause
+
+#include "enet_peer.hpp"
+
+#include <cstring>
+#include <fcntl.h>
+#include <random>
+#include <algorithm>
+#ifndef _WIN32
+#include <sys/socket.h>
+#endif
+#ifdef HAS_NETDB
+#include <netdb.h>
+#endif
+
+#ifdef __wasi__
+#define FCNTL socket_fcntl
+#else
+#define FCNTL fcntl
+#endif
+
+namespace luxon {
+namespace enet {
+namespace {
+constexpr uint32_t kStunMagicCookie = 0x2112A442u;
+constexpr uint16_t kStunBindingRequest = 0x0001u;
+constexpr uint16_t kStunBindingSuccessResponse = 0x0101u;
+constexpr uint16_t kStunAttrMappedAddress = 0x0001u;
+constexpr uint16_t kStunAttrXorMappedAddress = 0x0020u;
+
+inline uint16_t read_be16(const uint8_t *p) { return static_cast<uint16_t>((static_cast<uint16_t>(p[0]) << 8) | static_cast<uint16_t>(p[1])); }
+
+inline uint32_t read_be32(const uint8_t *p) {
+    return (static_cast<uint32_t>(p[0]) << 24) | (static_cast<uint32_t>(p[1]) << 16) | (static_cast<uint32_t>(p[2]) << 8) | static_cast<uint32_t>(p[3]);
+}
+
+inline void write_be16(uint8_t *p, uint16_t v) {
+    p[0] = static_cast<uint8_t>((v >> 8) & 0xFF);
+    p[1] = static_cast<uint8_t>(v & 0xFF);
+}
+
+inline void write_be32(uint8_t *p, uint32_t v) {
+    p[0] = static_cast<uint8_t>((v >> 24) & 0xFF);
+    p[1] = static_cast<uint8_t>((v >> 16) & 0xFF);
+    p[2] = static_cast<uint8_t>((v >> 8) & 0xFF);
+    p[3] = static_cast<uint8_t>(v & 0xFF);
+}
+
+EnetEndpoint parse_stun_address_attr(const uint8_t *attr, size_t attr_len, bool is_xor, const std::array<uint8_t, 12>& txid) {
+    if (attr_len < 4)
+        return {};
+    if (attr[0] != 0)
+        return {};
+
+    const uint8_t family = attr[1];
+    uint16_t port = read_be16(attr + 2);
+
+    if (is_xor)
+        port ^= static_cast<uint16_t>(kStunMagicCookie >> 16);
+
+    if (family == 0x01) {
+        if (attr_len < 8)
+            return {};
+
+        uint8_t addr_bytes[4];
+        std::memcpy(addr_bytes, attr + 4, 4);
+
+        if (is_xor) {
+            const uint8_t cookie_bytes[4] = {0x21, 0x12, 0xA4, 0x42};
+            for (int i = 0; i < 4; ++i)
+                addr_bytes[i] ^= cookie_bytes[i];
+        }
+
+        sockaddr_in sa{};
+        sa.sin_family = AF_INET;
+        sa.sin_port = htons(port);
+        std::memcpy(&sa.sin_addr, addr_bytes, sizeof(addr_bytes));
+
+        EnetEndpoint ep{};
+        std::memcpy(&ep.addr, &sa, sizeof(sa));
+        ep.len = sizeof(sa);
+        return ep;
+    }
+
+#ifdef HAS_SOCKADDR_IN6
+    if (family == 0x02) {
+        if (attr_len < 20)
+            return {};
+
+        uint8_t addr_bytes[16];
+        std::memcpy(addr_bytes, attr + 4, 16);
+
+        if (is_xor) {
+            const uint8_t cookie_bytes[4] = {0x21, 0x12, 0xA4, 0x42};
+            for (int i = 0; i < 4; ++i)
+                addr_bytes[i] ^= cookie_bytes[i];
+            for (int i = 0; i < 12; ++i)
+                addr_bytes[4 + i] ^= txid[i];
+        }
+
+        sockaddr_in6 sa{};
+        sa.sin6_family = AF_INET6;
+        sa.sin6_port = htons(port);
+        std::memcpy(&sa.sin6_addr, addr_bytes, sizeof(addr_bytes));
+
+        EnetEndpoint ep{};
+        std::memcpy(&ep.addr, &sa, sizeof(sa));
+        ep.len = sizeof(sa);
+        return ep;
+    }
+#endif
+
+    return {};
+}
+} // namespace
+
+UdpSocket::UdpSocket() {
+#ifdef _WIN32
+    static bool wsa_inited = false;
+    if (!wsa_inited) {
+        WSADATA w;
+        WSAStartup(MAKEWORD(2, 2), &w);
+        wsa_inited = true;
+    }
+#endif
+}
+
+UdpSocket::UdpSocket(SocketType native_handle) : sock_(native_handle), owning_(false), connected_(true) {}
+
+UdpSocket::~UdpSocket() {
+    if (owning_)
+        close();
+}
+
+void UdpSocket::close() {
+#ifdef _WIN32
+    if (sock_ != INVALID_SOCKET) {
+        closesocket(sock_);
+        sock_ = INVALID_SOCKET;
+    }
+#else
+    if (sock_ >= 0) {
+#ifdef __wasi__
+        ::socket_close(sock_);
+#else
+        ::close(sock_);
+#endif
+        sock_ = -1;
+    }
+#endif
+    connected_ = false;
+}
+
+void UdpSocket::set_nonblocking(bool nb) {
+#ifdef _WIN32
+    u_long mode = nb ? 1 : 0;
+    ioctlsocket(sock_, FIONBIO, &mode);
+#else
+    int flags = FCNTL(sock_, F_GETFL, 0);
+    if (flags < 0)
+        return;
+    if (nb)
+        flags |= O_NONBLOCK;
+    else
+        flags &= ~O_NONBLOCK;
+    FCNTL(sock_, F_SETFL, flags);
+#endif
+}
+
+bool UdpSocket::bind_any(uint16_t port, bool ipv6) {
+    close();
+
+    int af = ipv6 ? AF_INET6 : AF_INET;
+#ifdef _WIN32
+    sock_ = ::socket(af, SOCK_DGRAM, IPPROTO_UDP);
+    if (sock_ == INVALID_SOCKET)
+        return false;
+#else
+    sock_ = ::socket(af, SOCK_DGRAM, 0);
+    if (sock_ < 0)
+        return false;
+#endif
+
+    int yes = 1;
+    setsockopt(sock_, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<const char *>(&yes), sizeof(yes));
+
+#ifdef HAS_SOCKADDR_IN6
+    if (ipv6) {
+        int no = 0;
+        setsockopt(sock_, IPPROTO_IPV6, IPV6_V6ONLY, reinterpret_cast<const char *>(&no), sizeof(no));
+    }
+#endif
+
+#if defined(__linux__) || defined(_WIN32) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__APPLE__)
+    // Increase buffer size  TODO: Make this more flexible perhaps?
+    const int buffer_size = 1024 * 1024 * 8; // 8 MB
+    setsockopt(sock_, SOL_SOCKET, SO_RCVBUF, (const char *)&buffer_size, sizeof(buffer_size));
+    setsockopt(sock_, SOL_SOCKET, SO_SNDBUF, (const char *)&buffer_size, sizeof(buffer_size));
+#endif
+
+    if (!ipv6) {
+        sockaddr_in sa{};
+        sa.sin_family = AF_INET;
+        sa.sin_addr.s_addr = htonl(INADDR_ANY);
+        sa.sin_port = htons(port);
+        if (::bind(sock_, reinterpret_cast<sockaddr *>(&sa), sizeof(sa)) != 0) {
+            close();
+            return false;
+        }
+    } else {
+#ifdef HAS_SOCKADDR_IN6
+        sockaddr_in6 sa{};
+        sa.sin6_family = AF_INET6;
+        sa.sin6_addr = in6addr_any;
+        sa.sin6_port = htons(port);
+        if (::bind(sock_, reinterpret_cast<sockaddr *>(&sa), sizeof(sa)) != 0) {
+            close();
+            return false;
+        }
+#else
+        return false;
+#endif
+    }
+
+    return true;
+}
+
+bool UdpSocket::connect_to(const std::string& host, uint16_t port) {
+    sockaddr_storage ss{};
+    socklen_t slen = 0;
+
+    // Close any previous connection just to be sure
+    close();
+
+    // Try IPv4
+    sockaddr_in sa4{};
+    sa4.sin_family = AF_INET;
+    sa4.sin_port = htons(port);
+#ifdef HAS_PTON
+    if (inet_pton(AF_INET, host.c_str(), &sa4.sin_addr) == 1) {
+#elif defined(_WIN32)
+    sa4.sin_addr.s_addr = inet_addr(host.c_str());
+    if (sa4.sin_addr.s_addr != INADDR_NONE || host == "255.255.255.255") {
+#else
+    if (inet_aton(host.c_str(), &sa4.sin_addr) != 0) {
+#endif
+        std::memcpy(&ss, &sa4, sizeof(sa4));
+        slen = sizeof(sa4);
+#ifdef _WIN32
+        sock_ = ::socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+        if (sock_ == INVALID_SOCKET)
+            return false;
+#else
+        sock_ = ::socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+        if (sock_ < 0)
+            return false;
+#endif
+        if (::connect(sock_, reinterpret_cast<sockaddr *>(&ss), slen) != 0) {
+            close();
+            return false;
+        }
+        connected_ = true;
+        return true;
+    }
+
+    // Try IPv6
+#ifdef HAS_SOCKADDR_IN6
+    sockaddr_in6 sa6{};
+    sa6.sin6_family = AF_INET6;
+    sa6.sin6_port = htons(port);
+#ifdef HAS_PTON
+    if (inet_pton(AF_INET6, host.c_str(), &sa6.sin6_addr) == 1) {
+#elif defined(_WIN32)
+    int sa6len = sizeof(sa6);
+    if (WSAStringToAddressA(const_cast<LPSTR>(host.c_str()), AF_INET6, nullptr, reinterpret_cast<sockaddr *>(&sa6), &sa6len) == 0) {
+#else
+    if (false) {
+#endif
+        std::memcpy(&ss, &sa6, sizeof(sa6));
+        slen = sizeof(sa6);
+#ifdef _WIN32
+        sock_ = ::socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP);
+        if (sock_ == INVALID_SOCKET)
+            return false;
+#else
+        sock_ = ::socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP);
+        if (sock_ < 0)
+            return false;
+#endif
+        if (::connect(sock_, reinterpret_cast<sockaddr *>(&ss), slen) != 0) {
+            close();
+            return false;
+        }
+        connected_ = true;
+        return true;
+    }
+#endif
+
+    return false;
+}
+
+EnetEndpoint UdpSocket::lookup_hostname(const char *hostname, bool ipv6, uint16_t port) noexcept {
+    if (!hostname || !*hostname)
+        return {};
+
+#ifdef LUXON_ENET_HAS_PTON
+    {
+        sockaddr_in sa4{};
+        sa4.sin_family = AF_INET;
+        sa4.sin_port = htons(port);
+        if (inet_pton(AF_INET, hostname, &sa4.sin_addr) == 1) {
+            EnetEndpoint ep{};
+            std::memcpy(&ep.addr, &sa4, sizeof(sa4));
+            ep.len = sizeof(sa4);
+            return ep;
+        }
+    }
+
+#ifdef HAS_SOCKADDR_IN6
+    {
+        sockaddr_in6 sa6{};
+        sa6.sin6_family = AF_INET6;
+        sa6.sin6_port = htons(port);
+        if (inet_pton(AF_INET6, hostname, &sa6.sin6_addr) == 1) {
+            EnetEndpoint ep{};
+            std::memcpy(&ep.addr, &sa6, sizeof(sa6));
+            ep.len = sizeof(sa6);
+            return ep;
+        }
+    }
+#endif
+#endif
+
+#if defined(_WIN32) || defined(LUXON_ENET_HAS_NETDB)
+    addrinfo hints{};
+    hints.ai_family = ipv6 ? AF_UNSPEC : AF_INET;
+    hints.ai_socktype = SOCK_DGRAM;
+#ifdef IPPROTO_UDP
+    hints.ai_protocol = IPPROTO_UDP;
+#endif
+
+    addrinfo *result = nullptr;
+    if (getaddrinfo(hostname, nullptr, &hints, &result) != 0 || !result)
+        return {};
+
+    EnetEndpoint out;
+
+    for (addrinfo *it = result; it; it = it->ai_next) {
+        if (!it->ai_addr)
+            continue;
+
+        if (it->ai_family == AF_INET && it->ai_addrlen >= static_cast<socklen_t>(sizeof(sockaddr_in))) {
+            sockaddr_in sa{};
+            std::memcpy(&sa, it->ai_addr, sizeof(sa));
+            sa.sin_port = htons(port);
+
+            EnetEndpoint ep{};
+            std::memcpy(&ep.addr, &sa, sizeof(sa));
+            ep.len = sizeof(sa);
+            out = ep;
+            break;
+        }
+
+#ifdef HAS_SOCKADDR_IN6
+        if (it->ai_family == AF_INET6 && it->ai_addrlen >= static_cast<socklen_t>(sizeof(sockaddr_in6))) {
+            sockaddr_in6 sa{};
+            std::memcpy(&sa, it->ai_addr, sizeof(sa));
+            sa.sin6_port = htons(port);
+
+            EnetEndpoint ep{};
+            std::memcpy(&ep.addr, &sa, sizeof(sa));
+            ep.len = sizeof(sa);
+            out = ep;
+            break;
+        }
+#endif
+    }
+
+    freeaddrinfo(result);
+    return out;
+#else
+    return std::nullopt;
+#endif
+}
+
+bool UdpSocket::send_stun_binding_request(const EnetEndpoint& to) {
+    if (!is_open())
+        return false;
+
+    uint8_t req[20]{};
+    write_be16(req + 0, kStunBindingRequest);
+    write_be16(req + 2, 0);
+    write_be32(req + 4, kStunMagicCookie);
+
+    std::array<uint8_t, 12> txid{};
+    std::random_device rd;
+    for (size_t i = 0; i < txid.size(); ++i)
+        txid[i] = static_cast<uint8_t>(rd() & 0xFF);
+
+    std::memcpy(req + 8, txid.data(), txid.size());
+
+    const bool ok = connected_ ? send_connected(req, sizeof(req)) : send_to(req, sizeof(req), to);
+    if (!ok) {
+        stun_request_pending_ = false;
+        return false;
+    }
+
+    stun_transaction_id_ = txid;
+    stun_request_pending_ = true;
+    return true;
+}
+
+EnetEndpoint UdpSocket::parse_stun_binding_response(DatagramView datagram) {
+    if (!stun_request_pending_ || datagram.size() < 20)
+        return {};
+
+    const uint16_t msg_type = read_be16(datagram.data() + 0);
+    const uint16_t msg_len = read_be16(datagram.data() + 2);
+    const uint32_t cookie = read_be32(datagram.data() + 4);
+
+    if (cookie != kStunMagicCookie)
+        return {};
+    if (datagram.size() < static_cast<size_t>(20 + msg_len))
+        return {};
+    if (!std::equal(stun_transaction_id_.begin(), stun_transaction_id_.end(), datagram.begin() + 8))
+        return {};
+
+    // Matching response for our outstanding request.
+    stun_request_pending_ = false;
+
+    if (msg_type != kStunBindingSuccessResponse)
+        return {};
+
+    size_t offset = 20;
+    const size_t end = 20 + msg_len;
+
+    while (offset + 4 <= end) {
+        const uint16_t attr_type = read_be16(datagram.data() + offset + 0);
+        const uint16_t attr_len = read_be16(datagram.data() + offset + 2);
+        offset += 4;
+
+        if (offset + attr_len > end)
+            return {};
+
+        const uint8_t *attr = datagram.data() + offset;
+
+        if (attr_type == kStunAttrXorMappedAddress || attr_type == kStunAttrMappedAddress) {
+            if (auto ep = parse_stun_address_attr(attr, attr_len, attr_type == kStunAttrXorMappedAddress, stun_transaction_id_)) {
+#ifdef HAS_SOCKADDR_IN6
+                // Upgrade AF_INET to AF_INET6 mapped if the local socket is bound to IPv6
+                if (ep.addr.ss_family == AF_INET && is_open()) {
+                    sockaddr_storage ss{};
+                    socklen_t sslen = sizeof(ss);
+#ifdef _WIN32
+                    if (::getsockname(sock_, reinterpret_cast<sockaddr *>(&ss), &sslen) == 0 && ss.ss_family == AF_INET6) {
+#else
+                    if (::getsockname(sock_, reinterpret_cast<sockaddr *>(&ss), &sslen) == 0 && ss.ss_family == AF_INET6) {
+#endif
+                        const sockaddr_in *sa4 = reinterpret_cast<const sockaddr_in *>(&ep.addr);
+                        sockaddr_in6 sa6{};
+                        sa6.sin6_family = AF_INET6;
+                        sa6.sin6_port = sa4->sin_port;
+                        sa6.sin6_addr.s6_addr[10] = 0xff;
+                        sa6.sin6_addr.s6_addr[11] = 0xff;
+                        std::memcpy(&sa6.sin6_addr.s6_addr[12], &sa4->sin_addr.s_addr, 4);
+
+                        std::memcpy(&ep.addr, &sa6, sizeof(sa6));
+                        ep.len = sizeof(sa6);
+                    }
+                }
+#endif
+                return ep;
+            }
+        }
+
+        offset += attr_len;
+        offset = (offset + 3u) & ~size_t(3u);
+    }
+
+    return {};
+}
+
+bool UdpSocket::send_connected(const uint8_t *data, size_t len) {
+    if (!connected_)
+        return false;
+#ifdef _WIN32
+    int sent = ::send(sock_, reinterpret_cast<const char *>(data), (int)len, 0);
+    return sent == (int)len;
+#else
+    ssize_t sent = ::send(sock_, data, len, 0);
+    return sent == (ssize_t)len;
+#endif
+}
+
+bool UdpSocket::send_to(const uint8_t *data, size_t len, const EnetEndpoint& to) {
+    if (!is_open())
+        return false;
+#ifdef _WIN32
+    int sent = ::sendto(sock_, reinterpret_cast<const char *>(data), (int)len, 0, reinterpret_cast<const sockaddr *>(&to.addr), to.len);
+    return sent == (int)len;
+#else
+    ssize_t sent = ::sendto(sock_, data, len, 0, reinterpret_cast<const sockaddr *>(&to.addr), to.len);
+    return sent == (ssize_t)len;
+#endif
+}
+
+size_t UdpSocket::recv_from(uint8_t *buf, size_t cap, EnetEndpoint& from) {
+    if (!is_open())
+        return 0;
+    sockaddr_storage ss{};
+    socklen_t slen = sizeof(ss);
+#ifdef _WIN32
+    int r = ::recvfrom(sock_, reinterpret_cast<char *>(buf), (int)cap, 0, reinterpret_cast<sockaddr *>(&ss), &slen);
+    if (r <= 0)
+        return 0;
+#else
+    ssize_t r = ::recvfrom(sock_, buf, cap, 0, reinterpret_cast<sockaddr *>(&ss), &slen);
+    if (r <= 0)
+        return 0;
+#endif
+    from.addr = ss;
+    from.len = slen;
+    return (size_t)r;
+}
+
+bool UdpSocket::send_gathered(std::span<const DatagramView> buffers, const EnetEndpoint& to) {
+    if (!is_open())
+        return false;
+
+    // Calculate total byte size for validation
+    size_t total_bytes = 0;
+    for (const auto& view : buffers)
+        total_bytes += view.size();
+
+    // Fixed stack size
+    constexpr size_t MaxGather = 64;
+    if (buffers.size() <= MaxGather) {
+#if defined(HAS_WSASENDTO_WSARECVFROM)
+        // WSA implementation
+        WSABUF wsabufs[MaxGather];
+        for (size_t i = 0; i < buffers.size(); ++i) {
+            wsabufs[i].buf = reinterpret_cast<CHAR *>(const_cast<uint8_t *>(buffers[i].data()));
+            wsabufs[i].len = static_cast<ULONG>(buffers[i].size());
+        }
+
+        DWORD bytes_sent = 0;
+        const sockaddr *pTo = (to.len > 0) ? reinterpret_cast<const sockaddr *>(&to.addr) : nullptr;
+        int result = WSASendTo(sock_, wsabufs, static_cast<DWORD>(buffers.size()), &bytes_sent, 0, pTo, to.len, nullptr, nullptr);
+        return result == 0 && static_cast<size_t>(bytes_sent) == total_bytes;
+
+#elif defined(HAS_SENDMSG_RECVMSG)
+        // POSIX implementation
+        struct iovec iov[MaxGather];
+        for (size_t i = 0; i < buffers.size(); ++i) {
+            iov[i].iov_base = const_cast<uint8_t *>(buffers[i].data());
+            iov[i].iov_len = buffers[i].size();
+        }
+
+        struct msghdr msg{};
+        msg.msg_name = (to.len > 0) ? const_cast<sockaddr_storage *>(&to.addr) : nullptr;
+        msg.msg_namelen = to.len;
+        msg.msg_iov = iov;
+        msg.msg_iovlen = buffers.size();
+
+        ssize_t sent = ::sendmsg(sock_, &msg, 0);
+        return sent >= 0 && static_cast<size_t>(sent) == total_bytes;
+
+#endif
+        (void)0;
+    }
+
+    // Fallback for unsupported platforms and overflow
+    DatagramBuffer temp_buf;
+    if (total_bytes > temp_buf.size())
+        return false;
+
+    size_t offset = 0;
+
+    for (const auto& view : buffers) {
+        std::copy(view.begin(), view.end(), temp_buf.begin() + offset);
+        offset += view.size();
+    }
+
+    return send(temp_buf.data(), offset, to);
+}
+
+size_t UdpSocket::recv_scattered(std::span<std::span<uint8_t>> buffers, EnetEndpoint& from) {
+    if (!is_open())
+        return 0;
+
+    sockaddr_storage ss{};
+    socklen_t slen = sizeof(ss);
+
+    // Fixed stack size
+    constexpr size_t MaxScatter = 64;
+    if (buffers.size() <= MaxScatter) {
+#if defined(HAS_WSASENDTO_WSARECVFROM)
+        // WSA implementation
+        WSABUF wsabufs[MaxScatter];
+        for (size_t i = 0; i < buffers.size(); ++i) {
+            wsabufs[i].buf = reinterpret_cast<CHAR *>(buffers[i].data());
+            wsabufs[i].len = static_cast<ULONG>(buffers[i].size());
+        }
+
+        DWORD bytes_recv = 0;
+        DWORD flags = 0;
+        int result =
+            WSARecvFrom(sock_, wsabufs, static_cast<DWORD>(buffers.size()), &bytes_recv, &flags, reinterpret_cast<sockaddr *>(&ss), &slen, nullptr, nullptr);
+
+        if (result != 0)
+            return 0;
+        from.addr = ss;
+        from.len = slen;
+        return static_cast<size_t>(bytes_recv);
+
+#elif defined(HAS_SENDMSG_RECVMSG)
+        // POSIX implementation
+        struct iovec iov[MaxScatter];
+        for (size_t i = 0; i < buffers.size(); ++i) {
+            iov[i].iov_base = buffers[i].data();
+            iov[i].iov_len = buffers[i].size();
+        }
+
+        struct msghdr msg{};
+        msg.msg_name = &ss;
+        msg.msg_namelen = slen;
+        msg.msg_iov = iov;
+        msg.msg_iovlen = buffers.size();
+
+        ssize_t r = ::recvmsg(sock_, &msg, 0);
+        if (r <= 0)
+            return 0;
+
+        from.addr = ss;
+        from.len = msg.msg_namelen;
+        return static_cast<size_t>(r);
+
+#endif
+        (void)0;
+    }
+
+    // Fallback for unsupported platforms and overflow
+    DatagramBuffer temp_buf;
+    const size_t r = recv_from(temp_buf.data(), temp_buf.size(), from);
+    if (r == 0)
+        return 0;
+
+    size_t bytes_left = r;
+    size_t offset = 0;
+
+    for (auto& dst_buf : buffers) {
+        if (bytes_left == 0)
+            break;
+
+        const size_t to_copy = std::min(dst_buf.size(), bytes_left);
+        std::copy_n(temp_buf.begin() + offset, to_copy, dst_buf.begin());
+
+        offset += to_copy;
+        bytes_left -= to_copy;
+    }
+
+    return r;
+}
+
+} // namespace enet
+} // namespace luxon

@@ -1,19 +1,17 @@
-Source: luxon-server
+Source: corerealtime
 Maintainer: Tuxifan <tuxifan@posteo.de>
 Section: net
 Priority: optional
 Standards-Version: 4.7.0
-Build-Depends: debhelper-compat (= 13), cmake, ninja-build, git, libmbedtls-dev, libspdlog-dev
+Build-Depends: debhelper-compat (= 13), cmake, ninja-build, git, libmbedtls-dev, crossbuild-essential-arm64
 
-Package: luxon-server
-Architecture: any
+Package: corerealtime
+Architecture: arm64
 Depends: ${shlibs:Depends}, ${misc:Depends}
-Description: Clean-room reimplementation of the Photon LoadBalancing server
- Luxon Server is a clean-room implementation of the Photon Realtime server.
- It is built on top of the Luxon project, which provides the necessary
- reimplementation of the ENet protocol and Photon's binary serialization
- format.
+Description: CoreRealtime server (Linux arm64 ubuntu-unknown)
+ CoreRealtime is a clean-room implementation of the Photon Realtime server,
+ targeting only Linux ARM64 (aarch64-unknown-linux-gnu, Ubuntu/unknown).
  The goal of this project is to be a drop-in replacement for the official
  server for multiplayer games that utilize Photon.
  It aims to support games out of the box, provided they do not rely on complex
- server-side plugins, though a plugin system is available if needed.
+ server-side plugins.
