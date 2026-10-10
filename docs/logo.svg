@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="160" viewBox="0 0 720 160" role="img" aria-label="CoreRealtime logo">
+  <defs>
+    <linearGradient id="core-g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#39c5cf"/>
+      <stop offset="1" stop-color="#2ea043"/>
+    </linearGradient>
+  </defs>
+  <!-- mark: three relay nodes -->
+  <g fill="none" stroke="url(#core-g)" stroke-width="7" stroke-linecap="round">
+    <path d="M52 34 L104 62 L78 118 L26 118 L26 62 Z"/>
+    <circle cx="52" cy="34" r="10" fill="#39c5cf" stroke="none"/>
+    <circle cx="104" cy="62" r="10" fill="#2ea043" stroke="none"/>
+    <circle cx="65" cy="118" r="10" fill="url(#core-g)" stroke="none"/>
+    <circle cx="65" cy="76" r="7" fill="#0d1117" stroke="url(#core-g)" stroke-width="5"/>
+  </g>
+  <text x="140" y="82" font-family="Verdana, DejaVu Sans, sans-serif" font-size="52" font-weight="bold" fill="#e6edf3">Core<tspan fill="url(#core-g)">Realtime</tspan></text>
+  <text x="142" y="114" font-family="Verdana, DejaVu Sans, sans-serif" font-size="20" letter-spacing="6" fill="#8b949e">REALTIME SERVER • ARM64</text>
+</svg>

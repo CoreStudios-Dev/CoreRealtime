@@ -1,5 +1,7 @@
 # CoreRealtime
 
+![CoreRealtime logo](https://raw.githubusercontent.com/clebsonisaquedeandradesilva/CoreRealtime/main/docs/logo.svg)
+
 CoreRealtime is a clean-room implementation of the Photon Realtime server
 (Name/Master/Game flow), targeting **only Linux ARM64
 (`aarch64-unknown-linux-gnu`, Ubuntu/unknown)**.
