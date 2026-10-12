@@ -42,6 +42,17 @@ cp config.example.yml config.yml
 ./build/corerealtime config.yml
 ```
 
+Or via Docker (ARM64):
+
+```bash
+docker buildx build --platform linux/arm64 -t corerealtime .
+docker run -d --restart unless-stopped \
+  -p 5055-5058:5055-5058/udp -p 27000-27002:27000-27002/udp \
+  -p 4530:4530/tcp -p 4531:4531/tcp -p 4533:4533/tcp \
+  -v ./config.yml:/srv/config.yml:ro \
+  corerealtime
+```
+
 ```
 [ServerManager] [info] CoreRealtime ready — listening on 6 server(s)
 ```
