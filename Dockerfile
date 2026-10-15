@@ -1,6 +1,5 @@
-# CoreRealtime server image (Linux ARM64 only).
-# Build natively on ARM64, or cross via qemu:
-#   docker buildx build --platform linux/arm64 -t corerealtime .
+# CoreRealtime server image (Linux x86_64).
+#   docker buildx build --platform linux/amd64 -t corerealtime .
 # Run:
 #   docker run -d --name corerealtime --restart unless-stopped \
 #     -p 5055-5058:5055-5058/udp -p 27000-27002:27000-27002/udp \
@@ -8,7 +7,7 @@
 #     -v ./config.yml:/srv/config.yml:ro \
 #     corerealtime
 
-ARG ARCH=arm64
+ARG ARCH=amd64
 
 FROM --platform=linux/${ARCH} ubuntu:24.04 AS build
 ENV DEBIAN_FRONTEND=noninteractive

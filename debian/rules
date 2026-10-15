@@ -8,7 +8,7 @@ export DH_VERBOSE = 1
 override_dh_auto_configure:
 	dh_auto_configure -- \
 		-DCMAKE_BUILD_TYPE=Release \
-		-DCMAKE_TOOLCHAIN_FILE=cmake/toolchain-aarch64-ubuntu-unknown.cmake
+		-DCMAKE_TOOLCHAIN_FILE=cmake/toolchain-x86_64-linux-gnu.cmake
 
 override_dh_auto_install:
 	mkdir -p debian/corerealtime/usr/bin

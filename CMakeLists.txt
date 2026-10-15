@@ -3,15 +3,15 @@
 
 cmake_minimum_required(VERSION 3.16)
 
-# Identidade unica: CoreRealtime. Target unico: aarch64-unknown-linux-gnu.
+# Identidade unica: CoreRealtime. Target unico: x86_64-unknown-linux-gnu.
 project(CoreRealtime LANGUAGES C CXX)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux" OR NOT CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64)$")
-    message(FATAL_ERROR "[CoreRealtime] Target unico: aarch64-unknown-linux-gnu. Use --toolchain cmake/toolchain-aarch64-ubuntu-unknown.cmake")
+if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux" OR NOT CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64)$")
+    message(FATAL_ERROR "[CoreRealtime] Target unico: x86_64-unknown-linux-gnu. Use --toolchain cmake/toolchain-x86_64-linux-gnu.cmake")
 endif()
 
 include(cmake/CPM.cmake)
@@ -45,10 +45,10 @@ target_link_libraries(corerealtime_lib
 target_include_directories(corerealtime_lib PRIVATE include/luxon/server PUBLIC include)
 target_compile_definitions(corerealtime_lib PRIVATE
     SQLITE_CUSTOM_INCLUDE=sqlite3-config.h
-    PLATFORM="Linux-arm64-ubuntu-unknown"
+    PLATFORM="Linux-x86_64-ubuntu"
     PLATFORM_LINUX
     COREREALTIME_IDENTITY="CoreRealtime"
-    COREREALTIME_TARGET_TRIPLE="aarch64-unknown-linux-gnu"
+    COREREALTIME_TARGET_TRIPLE="x86_64-unknown-linux-gnu"
 )
 
 add_executable(corerealtime src/main.cpp)

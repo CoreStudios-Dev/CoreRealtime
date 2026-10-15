@@ -3,14 +3,14 @@ Maintainer: Tuxifan <tuxifan@posteo.de>
 Section: net
 Priority: optional
 Standards-Version: 4.7.0
-Build-Depends: debhelper-compat (= 13), cmake, ninja-build, git, libmbedtls-dev, crossbuild-essential-arm64
+Build-Depends: debhelper-compat (= 13), cmake, ninja-build, git, libmbedtls-dev
 
 Package: corerealtime
-Architecture: arm64
+Architecture: amd64
 Depends: ${shlibs:Depends}, ${misc:Depends}
-Description: CoreRealtime server (Linux arm64 ubuntu-unknown)
+Description: CoreRealtime server (Linux x86_64)
  CoreRealtime is a clean-room implementation of the Photon Realtime server,
- targeting only Linux ARM64 (aarch64-unknown-linux-gnu, Ubuntu/unknown).
+ targeting Linux x86_64 (x86_64-unknown-linux-gnu).
  The goal of this project is to be a drop-in replacement for the official
  server for multiplayer games that utilize Photon.
  It aims to support games out of the box, provided they do not rely on complex

@@ -500,7 +500,7 @@ ServerManager::ServerManager(ServerManagerConfig config
         static bool banner_printed = false;
         if (!banner_printed) {
             log_->info(" ");
-            log_->info(" |===================== CoreRealtime (Linux arm64 ubuntu-unknown) =====================|");
+            log_->info(" |===================== CoreRealtime (Linux x86_64) =====================|");
             log_->info(" | BSD 3-Clause License                                                           |");
             log_->info(" |                                                                                |");
             log_->info(" | Copyright (c) 2026, the CoreRealtime contributors                                   |");

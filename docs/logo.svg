@@ -47,5 +47,5 @@
   </g>
   <text x="152" y="92" font-family="Verdana, DejaVu Sans, sans-serif" font-size="54" font-weight="bold" fill="#f0f6fc" letter-spacing="1">Core<tspan fill="url(#core-g)">Realtime</tspan></text>
   <rect x="154" y="104" width="64" height="4" rx="2" fill="url(#core-g)"/>
-  <text x="154" y="134" font-family="Verdana, DejaVu Sans, sans-serif" font-size="19" letter-spacing="5.5" fill="#8b949e">REALTIME SERVER • ARM64</text>
+  <text x="154" y="134" font-family="Verdana, DejaVu Sans, sans-serif" font-size="19" letter-spacing="5.5" fill="#8b949e">REALTIME SERVER • X86_64</text>
 </svg>
