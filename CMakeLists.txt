@@ -10,8 +10,8 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux" OR NOT CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64)$")
-    message(FATAL_ERROR "[CoreRealtime] Target unico: x86_64-unknown-linux-gnu. Use --toolchain cmake/toolchain-x86_64-linux-gnu.cmake")
+if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux" OR NOT CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|aarch64|arm64)$")
+    message(FATAL_ERROR "[CoreRealtime] Targets: x86_64 ou aarch64 Linux. Use --toolchain cmake/toolchain-x86_64-linux-gnu.cmake (x86_64)")
 endif()
 
 include(cmake/CPM.cmake)

@@ -1,5 +1,5 @@
-# CoreRealtime server image (Linux x86_64).
-#   docker buildx build --platform linux/amd64 -t corerealtime .
+# CoreRealtime server image (native arch; ARM64 on CAX).
+#   docker build -t corerealtime .
 # Run:
 #   docker run -d --name corerealtime --restart unless-stopped \
 #     -p 5055-5058:5055-5058/udp -p 27000-27002:27000-27002/udp \
@@ -7,9 +7,9 @@
 #     -v ./config.yml:/srv/config.yml:ro \
 #     corerealtime
 
-ARG ARCH=amd64
+ARG TARGETARCH
 
-FROM --platform=linux/${ARCH} ubuntu:24.04 AS build
+FROM --platform=linux/${TARGETARCH} ubuntu:24.04 AS build
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential cmake ninja-build git libmbedtls-dev ca-certificates \
@@ -19,7 +19,7 @@ COPY . .
 RUN cmake -B build -DCMAKE_BUILD_TYPE=Release \
     && cmake --build build -j"$(nproc)"
 
-FROM --platform=linux/${ARCH} ubuntu:24.04 AS runtime
+FROM --platform=linux/${TARGETARCH} ubuntu:24.04 AS runtime
 WORKDIR /srv
 COPY --from=build /src/build/corerealtime /srv/corerealtime
 COPY config.example.yml /srv/config.yml

@@ -45,7 +45,7 @@ cp config.example.yml config.yml
 Or via Docker:
 
 ```bash
-docker buildx build --platform linux/amd64 -t corerealtime .
+docker build -t corerealtime .
 docker run -d --restart unless-stopped \
   -p 5055-5058:5055-5058/udp -p 27000-27002:27000-27002/udp \
   -p 4530:4530/tcp -p 4531:4531/tcp -p 4533:4533/tcp \
